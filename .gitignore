@@ -1,8 +1,10 @@
 .DS_Store
 *.log
+*.pyc
 targets/
 jobs/
 tmp/
+scripts/__pycache__/
 config/notify-config.yaml
 config/subfinder-config.yaml
 config/*.local.yaml
