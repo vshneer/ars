@@ -1,0 +1,5 @@
+- id: "tel"
+  telegram_api_key: "REPLACE_ME"
+  telegram_chat_id: "REPLACE_ME"
+  telegram_format: "{{data}}"
+  telegram_parsemode: "Markdown"

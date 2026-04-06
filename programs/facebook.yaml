@@ -1,0 +1,42 @@
+program: facebook
+platform: hackerone
+bounty: true
+
+in_scope:
+  - "*.facebook.com"
+  - "*.fb.com"
+  - "*.fb.me"
+  - "*.thefacebook.com"
+  - "*.m.facebook.com"
+  - "*.blog.whatsapp.com"
+  - "*.translate.whatsapp.com"
+  - "*.web.whatsapp.com"
+  - "*.whatsapp.net"
+  - "*.www.whatsapp.com"
+  - "*.instagram.com"
+  - "*.threads.com"
+  - "*.messenger.com"
+  - "*.meta.ai"
+  - "*.freebasics.com"
+  - "*.meta.com"
+  - "*.getsupernatural.com"
+  - "*.workplace.com"
+  - "*.mapillary.com"
+  - "*.manus.im"
+  - "*.monica.im"
+  - "*.aichat4search.com"
+
+out_of_scope:
+  - fbsbx.com
+  - investor.fb.com
+  - accountkit.com
+  - alpha.whatsapp.com
+  - media.whatsapp.com
+  - communityforums.atmeta.com
+  - daytum.com
+  - drop.io
+  - face.com
+  - friendfeed.com
+  - monoidics.com
+  - opencompute.org
+  - spaceport.io

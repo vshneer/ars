@@ -1,0 +1,23 @@
+program: airbnb
+platform: hackerone
+bounty: true
+
+in_scope:
+  - "*.airbnb.com"
+  - "*.airbnb.org"
+  - "*.musta.ch"
+  - "*.airbnbpayments.com"
+  - "*.atairbnb.com"
+  - "*.withairbnb.com"
+  - "*.airbnbcitizen.com"
+  - "*.byairbnb.com"
+  - "*.muscache.com"
+  - "*.airbnb-aws.com"
+  - "*.luxuryretreats.com"
+  - "*.airbnbopen.com"
+  - hoteltonight-test.com
+  - "*.hoteltonight.com"
+  - api.hoteltonight-test.com
+  - places.hoteltonight-test.com
+
+out_of_scope:

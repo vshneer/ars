@@ -1,0 +1,8 @@
+.DS_Store
+*.log
+targets/
+jobs/
+tmp/
+config/notify-config.yaml
+config/subfinder-config.yaml
+config/*.local.yaml
