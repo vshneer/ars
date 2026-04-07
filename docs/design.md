@@ -24,3 +24,7 @@ This repository implements the design for a cloud-based reconnaissance system.
 ## EC2 Bootstrap
 
 Use `scripts/setup_ec2.sh` to install packages, Go tools, clone the repo, create runtime directories, and add cron jobs.
+
+## Terraform Provisioning
+
+The Terraform stack provisions the EC2 instance, SSH security group, IAM role, and userdata bootstrap. Secrets and repo access are supplied through SSM parameters and an EC2 key pair.

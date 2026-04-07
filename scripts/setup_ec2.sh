@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-}"
 REPO_DIR="${REPO_DIR:-/recon-repo}"
 RUNTIME_DIR="${RUNTIME_DIR:-/recon}"
-INSTALL_USER="${SUDO_USER:-${USER:-root}}"
+INSTALL_USER="${INSTALL_USER:-${SUDO_USER:-${USER:-root}}}"
 PROGRAMS_DIR="$RUNTIME_DIR/programs"
 TARGETS_DIR="$RUNTIME_DIR/targets"
 JOBS_DIR="$RUNTIME_DIR/jobs"
@@ -27,10 +27,19 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   sudo_cmd="sudo"
 fi
 
+run_as_install_user() {
+  if [[ "$INSTALL_USER" == "$(id -un)" ]]; then
+    "$@"
+  else
+    sudo -u "$INSTALL_USER" "$@"
+  fi
+}
+
 install_packages() {
   $sudo_cmd apt-get update
   $sudo_cmd apt-get install -y \
     ca-certificates \
+    awscli \
     curl \
     git \
     golang-go \
@@ -80,7 +89,7 @@ setup_repo() {
     if [[ "$INSTALL_USER" == "root" ]]; then
       git -C "$REPO_DIR" pull --ff-only
     else
-      $sudo_cmd -u "$INSTALL_USER" git -C "$REPO_DIR" pull --ff-only
+      run_as_install_user git -C "$REPO_DIR" pull --ff-only
     fi
   else
     $sudo_cmd mkdir -p "$REPO_DIR"
@@ -88,19 +97,24 @@ setup_repo() {
     if [[ "$INSTALL_USER" == "root" ]]; then
       git clone "$REPO_URL" "$REPO_DIR"
     else
-      $sudo_cmd -u "$INSTALL_USER" git clone "$REPO_URL" "$REPO_DIR"
+      run_as_install_user git clone "$REPO_URL" "$REPO_DIR"
     fi
   fi
 }
 
 install_cron() {
-  local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
-  local run_job="* * * * * RECON_ROOT=$RUNTIME_DIR $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
-  local update_job="0 */6 * * * RECON_ROOT=$RUNTIME_DIR $REPO_DIR/scripts/update_templates.sh >> $LOG_DIR/templates.log 2>&1"
+  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-false} RECON_USE_HTTPX=${RECON_USE_HTTPX:-false} RECON_USE_NUCLEI=${RECON_USE_NUCLEI:-false}"
+  local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
+  local run_job="* * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
+  local update_job="0 */6 * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/update_templates.sh >> $LOG_DIR/templates.log 2>&1"
   local path_line="PATH=/usr/local/bin:/usr/bin:/bin"
 
   local current
-  current="$(crontab -l 2>/dev/null || true)"
+  if [[ "$INSTALL_USER" == "$(id -un)" ]]; then
+    current="$(crontab -l 2>/dev/null || true)"
+  else
+    current="$(sudo -u "$INSTALL_USER" crontab -l 2>/dev/null || true)"
+  fi
 
   {
     printf '%s\n' "$path_line"
@@ -108,7 +122,13 @@ install_cron() {
     printf '%s\n' "$sync_job"
     printf '%s\n' "$run_job"
     printf '%s\n' "$update_job"
-  } | awk 'NF && !seen[$0]++' | crontab -
+  } | awk 'NF && !seen[$0]++' | {
+    if [[ "$INSTALL_USER" == "$(id -un)" ]]; then
+      crontab -
+    else
+      sudo -u "$INSTALL_USER" crontab -
+    fi
+  }
 }
 
 main() {

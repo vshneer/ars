@@ -48,6 +48,38 @@ Run the bootstrap script on Ubuntu 22.04:
 REPO_URL=git@github.com:you/your-repo.git ./scripts/setup_ec2.sh
 ```
 
+## Terraform
+
+Provision the AWS side from `terraform/`:
+
+```bash
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+terraform -chdir=terraform init
+terraform -chdir=terraform plan -var-file=terraform.tfvars
+terraform -chdir=terraform apply -var-file=terraform.tfvars
+```
+
+For free-tier testing, keep `instance_type = "t3.micro"`.
+
+Before applying, create these SSM parameters if you want the instance to bootstrap fully:
+
+- `/ars/github_deploy_key`
+- `/ars/notify_config_yaml`
+- `/ars/subfinder_config_yaml`
+
+Store the values as base64-encoded blobs. The Terraform userdata decodes them on boot and writes the real files onto the instance.
+
+If the repo is private, add a GitHub deploy key to `git@github.com:vshneer/ars.git` and store the matching private key in `/ars/github_deploy_key`.
+
+Example:
+
+```bash
+val=$(base64 < config/notify-config.yaml | tr -d '\n')
+aws ssm put-parameter --name /ars/notify_config_yaml --type SecureString --value "$val" --overwrite
+```
+
+Repeat the same pattern for `/ars/subfinder_config_yaml` and `/ars/github_deploy_key`.
+
 ## Manual Local Testing
 
 Use a temporary root so you do not touch `/recon`:

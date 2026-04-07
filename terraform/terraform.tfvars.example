@@ -1,0 +1,16 @@
+aws_region      = "us-east-1"
+name_prefix     = "ars"
+instance_type   = "t3.micro"
+ssh_public_key  = "ssh-ed25519 AAAA... your-comment"
+ssh_ingress_cidr = "203.0.113.10/32"
+
+# Use the SSH repo URL if you have a GitHub deploy key loaded on the instance.
+repo_clone_url = "git@github.com:vshneer/ars.git"
+
+# Optional SSM parameters containing base64-encoded YAML config values.
+github_deploy_key_parameter_name = "/ars/github_deploy_key"
+notify_config_parameter_name     = "/ars/notify_config_yaml"
+subfinder_config_parameter_name  = "/ars/subfinder_config_yaml"
+
+# Enable the real scanners in cron.
+enable_scanners = true

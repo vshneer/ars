@@ -44,6 +44,14 @@ bash -n scripts/lib.sh scripts/sync_programs.sh scripts/run_jobs.sh scripts/run_
 python3 -m py_compile scripts/reconlib.py
 ```
 
+Terraform checks:
+
+```bash
+terraform -chdir=terraform fmt -check
+terraform -chdir=terraform init
+terraform -chdir=terraform validate
+```
+
 Single-file shell syntax check:
 
 ```bash
@@ -76,6 +84,12 @@ EC2 bootstrap dry run checks:
 
 ```bash
 bash -n scripts/setup_ec2.sh
+```
+
+Terraform plan:
+
+```bash
+terraform -chdir=terraform plan -var-file=terraform.tfvars
 ```
 
 ## How To Test Changes

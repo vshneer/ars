@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y awscli git
+
+install_user="ubuntu"
+repo_dir="/recon-repo"
+runtime_dir="/recon"
+config_dir="$runtime_dir/config"
+ssh_dir="/home/$install_user/.ssh"
+
+mkdir -p "$ssh_dir" "$config_dir"
+chown -R "$install_user:$install_user" "/home/$install_user"
+chmod 700 "$ssh_dir"
+
+fetch_parameter() {
+  local name="$1"
+  local dest="$2"
+  if [[ -n "$name" ]]; then
+    aws ssm get-parameter --name "$name" --with-decryption --query 'Parameter.Value' --output text > "$dest"
+    chmod 600 "$dest"
+  fi
+}
+
+fetch_parameter_b64() {
+  local name="$1"
+  local dest="$2"
+  if [[ -n "$name" ]]; then
+    aws ssm get-parameter --name "$name" --with-decryption --query 'Parameter.Value' --output text | base64 --decode > "$dest"
+    chmod 600 "$dest"
+  fi
+}
+
+fetch_parameter_b64 "${notify_config_parameter_name}" "$config_dir/notify-config.yaml"
+fetch_parameter_b64 "${subfinder_config_parameter_name}" "$config_dir/subfinder-config.yaml"
+
+if [[ -n "${github_deploy_key_parameter}" ]]; then
+  aws ssm get-parameter --name "${github_deploy_key_parameter}" --with-decryption --query 'Parameter.Value' --output text | base64 --decode > "$ssh_dir/id_rsa"
+  chmod 600 "$ssh_dir/id_rsa"
+  cat > "$ssh_dir/config" <<'EOF'
+Host github.com
+  IdentityFile ~/.ssh/id_rsa
+  IdentitiesOnly yes
+EOF
+  chmod 600 "$ssh_dir/config"
+  ssh-keyscan github.com >> "$ssh_dir/known_hosts" 2>/dev/null || true
+  chmod 600 "$ssh_dir/known_hosts"
+fi
+
+if [[ -d "$repo_dir/.git" ]]; then
+  sudo -u "$install_user" git -C "$repo_dir" pull --ff-only
+else
+  sudo -u "$install_user" git clone "${repo_clone_url}" "$repo_dir"
+fi
+
+export INSTALL_USER="$install_user"
+export REPO_URL="${repo_clone_url}"
+export RECON_USE_SUBFINDER="${enable_scanners}"
+export RECON_USE_HTTPX="${enable_scanners}"
+export RECON_USE_NUCLEI="${enable_scanners}"
+
+"$repo_dir/scripts/setup_ec2.sh"
