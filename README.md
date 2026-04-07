@@ -80,6 +80,25 @@ aws ssm put-parameter --name /ars/notify_config_yaml --type SecureString --value
 
 Repeat the same pattern for `/ars/subfinder_config_yaml` and `/ars/github_deploy_key`.
 
+## GitHub Deployment
+
+The GitHub workflow now uses AWS Systems Manager instead of inbound SSH.
+
+Add these GitHub secrets:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+
+The AWS identity used by the workflow needs permission to:
+
+- `ec2:DescribeInstances`
+- `ssm:SendCommand`
+- `ssm:GetCommandInvocation`
+- `ssm:ListCommandInvocations`
+
+The EC2 host must have the SSM managed instance role attached, which Terraform now configures.
+
 ## Manual Local Testing
 
 Use a temporary root so you do not touch `/recon`:

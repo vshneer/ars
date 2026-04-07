@@ -117,6 +117,11 @@ resource "aws_iam_role_policy" "ssm_read" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_instance_profile" "this" {
   name = "${var.name_prefix}-instance-profile"
   role = aws_iam_role.this.name
@@ -137,6 +142,7 @@ resource "aws_instance" "this" {
     subfinder_config_parameter_name = var.subfinder_config_parameter_name
     enable_scanners                 = local.scanner_env
     name_prefix                     = var.name_prefix
+    aws_region                      = var.aws_region
   })
 
   root_block_device {

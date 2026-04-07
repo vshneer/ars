@@ -5,6 +5,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y awscli git
 
+export AWS_REGION="${aws_region}"
+export AWS_DEFAULT_REGION="${aws_region}"
+
 install_user="ubuntu"
 repo_dir="/recon-repo"
 runtime_dir="/recon"
@@ -12,7 +15,9 @@ config_dir="$runtime_dir/config"
 ssh_dir="/home/$install_user/.ssh"
 
 mkdir -p "$ssh_dir" "$config_dir"
+mkdir -p "$repo_dir" "$runtime_dir"
 chown -R "$install_user:$install_user" "/home/$install_user"
+chown -R "$install_user:$install_user" "$repo_dir" "$runtime_dir"
 chmod 700 "$ssh_dir"
 
 fetch_parameter() {
@@ -43,16 +48,18 @@ if [[ -n "${github_deploy_key_parameter}" ]]; then
 Host github.com
   IdentityFile ~/.ssh/id_rsa
   IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
 EOF
   chmod 600 "$ssh_dir/config"
-  ssh-keyscan github.com >> "$ssh_dir/known_hosts" 2>/dev/null || true
-  chmod 600 "$ssh_dir/known_hosts"
+  ssh-keyscan -H github.com > "$ssh_dir/known_hosts"
+  chmod 644 "$ssh_dir/known_hosts"
+  chown -R "$install_user:$install_user" "$ssh_dir"
 fi
 
 if [[ -d "$repo_dir/.git" ]]; then
-  sudo -u "$install_user" git -C "$repo_dir" pull --ff-only
+  sudo -u "$install_user" -H env HOME="$ssh_dir/.." git -C "$repo_dir" pull --ff-only
 else
-  sudo -u "$install_user" git clone "${repo_clone_url}" "$repo_dir"
+  sudo -u "$install_user" -H env HOME="$ssh_dir/.." git clone "${repo_clone_url}" "$repo_dir"
 fi
 
 export INSTALL_USER="$install_user"

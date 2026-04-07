@@ -42,15 +42,34 @@ install_packages() {
     awscli \
     curl \
     git \
-    golang-go \
     cron \
     jq \
     python3 \
     python3-pip \
     unzip
+
+  systemctl enable --now amazon-ssm-agent 2>/dev/null || true
+}
+
+install_go_toolchain() {
+  local go_version="${GO_VERSION:-1.24.0}"
+  local arch
+  case "$(uname -m)" in
+    x86_64|amd64) arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) echo "Unsupported architecture for Go install" >&2; exit 1 ;;
+  esac
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  curl -fsSL "https://go.dev/dl/go${go_version}.linux-${arch}.tar.gz" -o "$tmpdir/go.tgz"
+  $sudo_cmd rm -rf /usr/local/go
+  $sudo_cmd tar -C /usr/local -xzf "$tmpdir/go.tgz"
+  export PATH="/usr/local/go/bin:$PATH"
 }
 
 install_go_tools() {
+  export PATH="/usr/local/go/bin:$PATH"
   export GOPATH="${GOPATH:-$HOME/go}"
   export PATH="$PATH:$GOPATH/bin"
 
@@ -133,6 +152,7 @@ install_cron() {
 
 main() {
   install_packages
+  install_go_toolchain
   install_go_tools
   setup_runtime
   setup_repo
