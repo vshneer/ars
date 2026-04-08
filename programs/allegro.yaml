@@ -1,0 +1,10 @@
+program: allegro
+platform: intigrity
+bounty: true
+
+in_scope:
+  - "*.allegro.cz.allegrosandbox.pl"
+  - "*.allegro.pl.allegrosandbox.pl"
+  - "*.allegro.sk.allegrosandbox.pl"
+out_of_scope:
+

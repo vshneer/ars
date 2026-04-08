@@ -1,0 +1,8 @@
+program: DPG
+platform: intigrity
+bounty: true
+
+in_scope:
+  - "*.ad.nl"
+out_of_scope:
+  - abonnement.ad.nl
