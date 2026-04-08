@@ -63,6 +63,25 @@ else:
 PY
 }
 
+append_unique_lines() {
+  local input_file="$1"
+  local output_file="$2"
+  local existing_file="$3"
+
+  if command -v anew >/dev/null 2>&1; then
+    local new_file
+    new_file="$(mktemp)"
+    cat "$input_file" | anew "$existing_file" >"$new_file"
+    cat "$existing_file" "$new_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
+    mv "$output_file.tmp" "$output_file"
+    rm -f "$new_file"
+    return 0
+  fi
+
+  cat "$existing_file" "$input_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
+  mv "$output_file.tmp" "$output_file"
+}
+
 lock_dir="$program_target/lock"
 lock_acquired=0
 cleanup() {
@@ -119,13 +138,14 @@ if [[ "${RECON_USE_SUBFINDER:-false}" == "true" ]] && command -v subfinder >/dev
   fi
   if ! subfinder "${subfinder_args[@]}" 2>>"$pipeline_log" \
     | tee -a "$raw_subs_file" \
-    | anew "$subs_file" \
-    | tee -a "$new_subs_file" >/dev/null; then
+    | tee "$new_subs_file" >/dev/null; then
     stage_log "subfinder completed with errors"
   fi
 else
-  cat "$seed_file" | tee -a "$raw_subs_file" | anew "$subs_file" | tee -a "$new_subs_file" >/dev/null
+  cat "$seed_file" | tee -a "$raw_subs_file" | tee "$new_subs_file" >/dev/null
 fi
+
+append_unique_lines "$new_subs_file" "$subs_file" "$subs_file"
 
 stage_log "Discovery complete: $(line_count "$raw_subs_file") raw hosts, $(line_count "$subs_file") unique total, $(line_count "$new_subs_file") new this run"
 python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$new_subs_file" "$filtered_file"
@@ -174,13 +194,17 @@ stage_log "Scan complete: $(line_count "$findings_raw") raw findings"
 python3 "$SCRIPT_DIR/reconlib.py" annotate-findings "$program" "$findings_raw" "$findings_file"
 stage_log "Annotation complete: $(json_record_count "$findings_file") findings"
 
-if [[ -s "$findings_file" ]] && command -v notify >/dev/null 2>&1 && [[ -f "$NOTIFY_CONFIG_FILE" ]]; then
+finding_count="$(json_record_count "$findings_file")"
+
+if [[ "$finding_count" -gt 0 ]] && command -v notify >/dev/null 2>&1 && [[ -f "$NOTIFY_CONFIG_FILE" ]]; then
   if ! notify -pc "$NOTIFY_CONFIG_FILE" <"$findings_file" 2>>"$pipeline_log"; then
     stage_log "notify completed with errors"
   fi
-elif [[ -s "$findings_file" ]]; then
+elif [[ "$finding_count" -gt 0 ]]; then
   stage_log "Skipping notify because $NOTIFY_CONFIG_FILE is missing"
 fi
+
+stage_log "Summary: new=$(line_count "$new_subs_file") filtered=$(line_count "$filtered_file") probed=$(line_count "$live_file") findings=$finding_count"
 
 finished_at="$(timestamp)"
 update_job_status "$program" complete "$started_at" "$finished_at"
