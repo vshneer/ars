@@ -109,6 +109,35 @@ install_go_tools() {
   done
 }
 
+ensure_tool() {
+  local name="$1"
+  local package="$2"
+
+  if command -v "$name" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  export PATH="/usr/local/go/bin:$PATH"
+  export HOME="${HOME:-$INSTALL_HOME}"
+  export GOPATH="${GOPATH:-$HOME/go}"
+  export PATH="$PATH:$GOPATH/bin"
+  go install -p 1 "$package@latest"
+  $sudo_cmd ln -sf "$GOPATH/bin/$name" "/usr/local/bin/$name"
+
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "Failed to install required tool: $name" >&2
+    exit 1
+  fi
+}
+
+verify_scanner_tooling() {
+  ensure_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
+  ensure_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
+  ensure_tool nuclei github.com/projectdiscovery/nuclei/v3/cmd/nuclei
+  ensure_tool notify github.com/projectdiscovery/notify/cmd/notify
+  ensure_tool anew github.com/tomnomnom/anew
+}
+
 setup_runtime() {
   $sudo_cmd mkdir -p "$PROGRAMS_DIR" "$TARGETS_DIR" "$JOBS_DIR" "$CONFIG_DIR" "$LOG_DIR"
   $sudo_cmd chown -R "$INSTALL_USER:$INSTALL_USER" "$RUNTIME_DIR"
@@ -187,6 +216,7 @@ main() {
   setup_swap
   install_go_toolchain
   install_go_tools
+  verify_scanner_tooling
   setup_runtime
   setup_repo
   link_runtime_programs
