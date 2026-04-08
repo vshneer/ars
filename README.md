@@ -115,6 +115,12 @@ RECON_ROOT="$tmp" RECON_USE_SUBFINDER=false RECON_USE_HTTPX=false RECON_USE_NUCL
 
 Check the output files in `$tmp/targets/airbnb/`.
 
+Pipeline outputs are cumulative:
+
+- `subs.txt` = all discovered subdomains seen so far
+- `subs.raw.txt` = raw output from the latest run
+- `subs.new.txt` = only the new discoveries from the latest run
+
 
 ## Layout
 

@@ -90,9 +90,12 @@ live_file="$program_target/live.txt"
 findings_raw="$program_target/findings.raw"
 findings_file="$program_target/findings.json"
 seed_file="$program_target/discovery_seeds.txt"
+raw_subs_file="$program_target/subs.raw.txt"
+new_subs_file="$program_target/subs.new.txt"
 
-: >"$subs_file"
 : >"$seed_file"
+: >"$raw_subs_file"
+: >"$new_subs_file"
 
 mapfile -t in_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" in_scope)
 mapfile -t out_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" out_of_scope)
@@ -114,17 +117,19 @@ if [[ "${RECON_USE_SUBFINDER:-false}" == "true" ]] && command -v subfinder >/dev
   if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
     subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
   fi
-  if ! subfinder "${subfinder_args[@]}" >>"$subs_file" 2>>"$pipeline_log"; then
+  if ! subfinder "${subfinder_args[@]}" 2>>"$pipeline_log" \
+    | tee -a "$raw_subs_file" \
+    | anew "$subs_file" \
+    | tee -a "$new_subs_file" >/dev/null; then
     stage_log "subfinder completed with errors"
   fi
 else
-  cat "$seed_file" >>"$subs_file"
+  cat "$seed_file" | tee -a "$raw_subs_file" | anew "$subs_file" | tee -a "$new_subs_file" >/dev/null
 fi
 
-sort -u "$subs_file" -o "$subs_file" || true
-stage_log "Discovery complete: $(line_count "$subs_file") candidate hosts"
-python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$subs_file" "$filtered_file"
-stage_log "Scope filter complete: $(line_count "$filtered_file") hosts after out_of_scope removal"
+stage_log "Discovery complete: $(line_count "$raw_subs_file") raw hosts, $(line_count "$subs_file") unique total, $(line_count "$new_subs_file") new this run"
+python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$new_subs_file" "$filtered_file"
+stage_log "Scope filter complete: $(line_count "$filtered_file") new hosts after out_of_scope removal"
 
 probe_live_host() {
   local host="$1"
