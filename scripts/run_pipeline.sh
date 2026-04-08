@@ -89,8 +89,10 @@ filtered_file="$program_target/filtered_subs.txt"
 live_file="$program_target/live.txt"
 findings_raw="$program_target/findings.raw"
 findings_file="$program_target/findings.json"
+seed_file="$program_target/discovery_seeds.txt"
 
 : >"$subs_file"
+: >"$seed_file"
 
 mapfile -t in_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" in_scope)
 mapfile -t out_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" out_of_scope)
@@ -101,23 +103,28 @@ for scope in "${in_scope[@]}"; do
     base_scope="$scope"
   fi
 
-  if [[ "${RECON_USE_SUBFINDER:-false}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
-    subfinder_args=(-d "$base_scope" -silent)
-    if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
-      subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
-    fi
-    if ! subfinder "${subfinder_args[@]}" >>"$subs_file" 2>>"$pipeline_log"; then
-      stage_log "subfinder failed for $base_scope"
-    fi
-  else
-    printf '%s\n' "$base_scope" >>"$subs_file"
-  fi
+  printf '%s\n' "$base_scope" >>"$seed_file"
 done
+
+sort -u "$seed_file" -o "$seed_file" || true
+stage_log "Discovery seeds prepared: $(line_count "$seed_file") domains"
+
+if [[ "${RECON_USE_SUBFINDER:-false}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
+  subfinder_args=(-dL "$seed_file" -silent)
+  if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
+    subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
+  fi
+  if ! subfinder "${subfinder_args[@]}" >>"$subs_file" 2>>"$pipeline_log"; then
+    stage_log "subfinder completed with errors"
+  fi
+else
+  cat "$seed_file" >>"$subs_file"
+fi
 
 sort -u "$subs_file" -o "$subs_file" || true
 stage_log "Discovery complete: $(line_count "$subs_file") candidate hosts"
-python3 "$SCRIPT_DIR/reconlib.py" filter-scope "$yaml" "$subs_file" "$filtered_file"
-stage_log "Scope filter complete: $(line_count "$filtered_file") in-scope hosts"
+python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$subs_file" "$filtered_file"
+stage_log "Scope filter complete: $(line_count "$filtered_file") hosts after out_of_scope removal"
 
 probe_live_host() {
   local host="$1"

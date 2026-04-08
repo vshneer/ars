@@ -104,6 +104,25 @@ def cmd_filter_scope(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_filter_out_scope(args: argparse.Namespace) -> int:
+    program = load_program(args.yaml)
+    out_scope: List[str] = program.get("out_of_scope", []) or []
+
+    seen = set()
+    output: List[str] = []
+    for raw in Path(args.input).read_text().splitlines():
+        candidate = raw.strip()
+        if not candidate or candidate in seen:
+            continue
+        if any(matches(candidate, scope) for scope in out_scope):
+            continue
+        seen.add(candidate)
+        output.append(candidate)
+
+    Path(args.output).write_text("\n".join(output) + ("\n" if output else ""))
+    return 0
+
+
 def add_program(record: Any, program: str) -> Any:
     if isinstance(record, dict):
         updated = dict(record)
@@ -151,6 +170,12 @@ def build_parser() -> argparse.ArgumentParser:
     filter_parser.add_argument("input")
     filter_parser.add_argument("output")
     filter_parser.set_defaults(func=cmd_filter_scope)
+
+    out_filter_parser = sub.add_parser("filter-out-scope")
+    out_filter_parser.add_argument("yaml")
+    out_filter_parser.add_argument("input")
+    out_filter_parser.add_argument("output")
+    out_filter_parser.set_defaults(func=cmd_filter_out_scope)
 
     annotate_parser = sub.add_parser("annotate-findings")
     annotate_parser.add_argument("program")
