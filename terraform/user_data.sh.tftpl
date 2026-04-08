@@ -9,10 +9,11 @@ export AWS_REGION="${aws_region}"
 export AWS_DEFAULT_REGION="${aws_region}"
 
 install_user="ubuntu"
+install_home="/home/$install_user"
 repo_dir="/recon-repo"
 runtime_dir="/recon"
 config_dir="$runtime_dir/config"
-ssh_dir="/home/$install_user/.ssh"
+ssh_dir="$install_home/.ssh"
 
 mkdir -p "$ssh_dir" "$config_dir"
 mkdir -p "$repo_dir" "$runtime_dir"
@@ -57,9 +58,9 @@ EOF
 fi
 
 if [[ -d "$repo_dir/.git" ]]; then
-  sudo -u "$install_user" -H env HOME="$ssh_dir/.." git -C "$repo_dir" pull --ff-only
+  sudo -H -u "$install_user" env HOME="$install_home" git -C "$repo_dir" pull --ff-only
 else
-  sudo -u "$install_user" -H env HOME="$ssh_dir/.." git clone "${repo_clone_url}" "$repo_dir"
+  sudo -H -u "$install_user" env HOME="$install_home" git clone "${repo_clone_url}" "$repo_dir"
 fi
 
 export INSTALL_USER="$install_user"

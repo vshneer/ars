@@ -6,6 +6,7 @@ REPO_URL="${REPO_URL:-}"
 REPO_DIR="${REPO_DIR:-/recon-repo}"
 RUNTIME_DIR="${RUNTIME_DIR:-/recon}"
 INSTALL_USER="${INSTALL_USER:-${SUDO_USER:-${USER:-root}}}"
+INSTALL_HOME="${INSTALL_HOME:-$(getent passwd "$INSTALL_USER" | cut -d: -f6)}"
 PROGRAMS_DIR="$RUNTIME_DIR/programs"
 TARGETS_DIR="$RUNTIME_DIR/targets"
 JOBS_DIR="$RUNTIME_DIR/jobs"
@@ -31,7 +32,7 @@ run_as_install_user() {
   if [[ "$INSTALL_USER" == "$(id -un)" ]]; then
     "$@"
   else
-    sudo -u "$INSTALL_USER" "$@"
+    sudo -H -u "$INSTALL_USER" "$@"
   fi
 }
 
@@ -70,6 +71,7 @@ install_go_toolchain() {
 
 install_go_tools() {
   export PATH="/usr/local/go/bin:$PATH"
+  export HOME="${HOME:-$INSTALL_HOME}"
   export GOPATH="${GOPATH:-$HOME/go}"
   export PATH="$PATH:$GOPATH/bin"
 
