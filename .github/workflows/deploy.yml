@@ -1,6 +1,7 @@
 name: Deploy Recon
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'programs/**'
@@ -50,7 +51,6 @@ jobs:
 
       - name: Run deploy via SSM
         run: |
-          set +e
           command_id=$(aws ssm send-command \
             --instance-ids "${{ steps.resolve.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
@@ -58,18 +58,11 @@ jobs:
             --parameters 'commands=["cd /recon-repo && git pull --ff-only"]' \
             --query 'Command.CommandId' \
             --output text)
-
-          send_rc=$?
-          if [[ $send_rc -ne 0 ]]; then
-            echo "Failed to send SSM command" >&2
-            exit $send_rc
-          fi
-
-          aws ssm wait command-executed \
+          if ! aws ssm wait command-executed \
             --command-id "$command_id" \
-            --instance-id "${{ steps.resolve.outputs.instance_id }}"
-
-          wait_rc=$?
+            --instance-id "${{ steps.resolve.outputs.instance_id }}"; then
+            echo "SSM command reached a terminal failure state" >&2
+          fi
 
           aws ssm get-command-invocation \
             --command-id "$command_id" \
@@ -77,9 +70,12 @@ jobs:
             --query '{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}' \
             --output json
 
-          invoke_rc=$?
-          set -e
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "${{ steps.resolve.outputs.instance_id }}" \
+            --query 'Status' \
+            --output text)
 
-          if [[ $wait_rc -ne 0 || $invoke_rc -ne 0 ]]; then
+          if [[ "$status" != "Success" ]]; then
             exit 1
           fi

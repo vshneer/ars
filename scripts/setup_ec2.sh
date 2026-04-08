@@ -52,6 +52,24 @@ install_packages() {
   systemctl enable --now amazon-ssm-agent 2>/dev/null || true
 }
 
+setup_swap() {
+  if swapon --show | awk 'NR>1 {found=1} END {exit !found}'; then
+    return
+  fi
+
+  local swapfile="/swapfile"
+  if [[ ! -f "$swapfile" ]]; then
+    fallocate -l 2G "$swapfile" 2>/dev/null || dd if=/dev/zero of="$swapfile" bs=1M count=2048 status=none
+    chmod 600 "$swapfile"
+    mkswap "$swapfile" >/dev/null
+  fi
+
+  swapon "$swapfile"
+  if ! grep -q '^/swapfile ' /etc/fstab; then
+    printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab
+  fi
+}
+
 install_go_toolchain() {
   local go_version="${GO_VERSION:-1.24.0}"
   local arch
@@ -74,12 +92,14 @@ install_go_tools() {
   export HOME="${HOME:-$INSTALL_HOME}"
   export GOPATH="${GOPATH:-$HOME/go}"
   export PATH="$PATH:$GOPATH/bin"
+  export GOMAXPROCS="${GOMAXPROCS:-1}"
+  export GOFLAGS="${GOFLAGS:--p=1}"
 
-  go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-  go install github.com/projectdiscovery/httpx/cmd/httpx@latest
-  go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-  go install github.com/projectdiscovery/notify/cmd/notify@latest
-  go install github.com/tomnomnom/anew@latest
+  go install -p 1 github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+  go install -p 1 github.com/projectdiscovery/httpx/cmd/httpx@latest
+  go install -p 1 github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+  go install -p 1 github.com/projectdiscovery/notify/cmd/notify@latest
+  go install -p 1 github.com/tomnomnom/anew@latest
 
   $sudo_cmd mkdir -p /usr/local/bin
   for bin in subfinder httpx nuclei notify anew; do
@@ -154,6 +174,7 @@ install_cron() {
 
 main() {
   install_packages
+  setup_swap
   install_go_toolchain
   install_go_tools
   setup_runtime

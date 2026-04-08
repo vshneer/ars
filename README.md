@@ -48,6 +48,8 @@ Run the bootstrap script on Ubuntu 22.04:
 REPO_URL=git@github.com:you/your-repo.git ./scripts/setup_ec2.sh
 ```
 
+The bootstrap now creates swap automatically and installs Go tools with a single build worker to reduce OOM risk on small instances.
+
 ## Terraform
 
 Provision the AWS side from `terraform/`:
