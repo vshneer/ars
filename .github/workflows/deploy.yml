@@ -55,7 +55,7 @@ jobs:
             --instance-ids "${{ steps.resolve.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy recon repo" \
-            --parameters 'commands=["cd /recon-repo && git pull --ff-only"]' \
+            --parameters 'commands=["sudo -H -u ubuntu bash -lc \"cd /recon-repo && git pull --ff-only\""]' \
             --query 'Command.CommandId' \
             --output text)
           if ! aws ssm wait command-executed \

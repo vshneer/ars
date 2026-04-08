@@ -157,9 +157,12 @@ install_cron() {
     current="$(sudo -u "$INSTALL_USER" crontab -l 2>/dev/null || true)"
   fi
 
+  local cleaned_current
+  cleaned_current="$(printf '%s\n' "$current" | grep -v '/recon-repo/scripts/' | grep -v 'RECON_USE_' || true)"
+
   {
     printf '%s\n' "$path_line"
-    printf '%s\n' "$current"
+    printf '%s\n' "$cleaned_current"
     printf '%s\n' "$sync_job"
     printf '%s\n' "$run_job"
     printf '%s\n' "$update_job"
