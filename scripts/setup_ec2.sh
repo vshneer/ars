@@ -143,6 +143,13 @@ setup_repo() {
   fi
 }
 
+link_runtime_programs() {
+  if [[ -d "$REPO_DIR/programs" ]]; then
+    rm -rf "$PROGRAMS_DIR"
+    ln -s "$REPO_DIR/programs" "$PROGRAMS_DIR"
+  fi
+}
+
 install_cron() {
   local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-false} RECON_USE_HTTPX=${RECON_USE_HTTPX:-false} RECON_USE_NUCLEI=${RECON_USE_NUCLEI:-false}"
   local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
@@ -182,6 +189,7 @@ main() {
   install_go_tools
   setup_runtime
   setup_repo
+  link_runtime_programs
   install_cron
 
   echo "EC2 setup complete."
