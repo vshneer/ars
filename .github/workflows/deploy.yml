@@ -37,8 +37,20 @@ jobs:
           fi
           echo "instance_id=$instance_id" >> "$GITHUB_OUTPUT"
 
+      - name: Verify SSM is online
+        run: |
+          ping_status=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=${{ steps.resolve.outputs.instance_id }}" \
+            --query 'InstanceInformationList[0].PingStatus' \
+            --output text)
+          if [[ "$ping_status" != "Online" ]]; then
+            echo "Instance is not managed by SSM yet: $ping_status" >&2
+            exit 1
+          fi
+
       - name: Run deploy via SSM
         run: |
+          set +e
           command_id=$(aws ssm send-command \
             --instance-ids "${{ steps.resolve.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
@@ -47,12 +59,27 @@ jobs:
             --query 'Command.CommandId' \
             --output text)
 
+          send_rc=$?
+          if [[ $send_rc -ne 0 ]]; then
+            echo "Failed to send SSM command" >&2
+            exit $send_rc
+          fi
+
           aws ssm wait command-executed \
             --command-id "$command_id" \
             --instance-id "${{ steps.resolve.outputs.instance_id }}"
+
+          wait_rc=$?
 
           aws ssm get-command-invocation \
             --command-id "$command_id" \
             --instance-id "${{ steps.resolve.outputs.instance_id }}" \
             --query '{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}' \
             --output json
+
+          invoke_rc=$?
+          set -e
+
+          if [[ $wait_rc -ne 0 || $invoke_rc -ne 0 ]]; then
+            exit 1
+          fi
