@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/lib.sh"
 shopt -s nullglob
 
 for yaml in "$PROGRAMS_DIR"/*.yaml; do
-  program="$(python3 "$SCRIPT_DIR/reconlib.py" get "$yaml" program)"
+  program="$(python3 "$SCRIPT_DIR/reconlib.py" get "$yaml" program | tr '[:upper:]' '[:lower:]')"
   if [[ -z "$program" ]]; then
     log ERROR system "Skipping program file without program key: $yaml"
     continue

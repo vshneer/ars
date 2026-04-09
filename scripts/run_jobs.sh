@@ -10,13 +10,17 @@ log INFO system "Job scheduler started"
 
 shopt -s nullglob
 pids=()
+seen_programs=()
 
 for job in "$JOBS_DIR"/*.job; do
-  program="$(awk -F= '$1 == "program" {print $2}' "$job")"
+  program="$(awk -F= '$1 == "program" {print $2}' "$job" | tr '[:upper:]' '[:lower:]')"
   status="$(awk -F= '$1 == "status" {print $2}' "$job")"
 
   [[ -z "$program" ]] && continue
-  [[ "$status" == "complete" ]] && continue
+  if printf '%s
+    continue
+  fi
+  seen_programs+=("$program")
 
   if [[ -d "$(target_dir "$program")/lock" ]]; then
     log INFO "$program" "Already running"

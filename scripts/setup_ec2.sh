@@ -180,7 +180,7 @@ link_runtime_programs() {
 }
 
 install_cron() {
-  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-false} RECON_USE_HTTPX=${RECON_USE_HTTPX:-false} RECON_USE_NUCLEI=${RECON_USE_NUCLEI:-false}"
+  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_NUCLEI=${RECON_USE_NUCLEI:-true}"
   local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
   local run_job="* * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
   local update_job="0 */6 * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/update_templates.sh >> $LOG_DIR/templates.log 2>&1"

@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
-program="${1:-}"
+program="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
 if [[ -z "$program" ]]; then
   log ERROR system "Usage: run_pipeline.sh <program>"
   exit 1
