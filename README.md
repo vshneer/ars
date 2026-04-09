@@ -121,6 +121,14 @@ Pipeline outputs are cumulative:
 - `subs.raw.txt` = raw output from the latest run
 - `subs.new.txt` = only the new discoveries from the latest run
 
+## Status Check
+
+On EC2, run:
+
+```bash
+/recon-repo/scripts/check_status.sh
+```
+
 
 ## Layout
 
