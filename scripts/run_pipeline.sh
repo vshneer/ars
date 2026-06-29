@@ -32,6 +32,14 @@ stage_log() {
   printf '%s [%s] [%s] %s\n' "$(timestamp)" "INFO" "$program" "$message" >>"$pipeline_log"
 }
 
+debug_log() {
+  local message="$1"
+  if [[ "${RECON_DEBUG:-false}" == "true" ]]; then
+    log INFO "$program" "DEBUG: $message"
+  fi
+  printf '%s [%s] [%s] %s\n' "$(timestamp)" "DEBUG" "$program" "$message" >>"$pipeline_log"
+}
+
 line_count() {
   local file="$1"
   if [[ -s "$file" ]]; then
@@ -64,6 +72,7 @@ stage_log "Pipeline started"
 subs_file="$program_target/subs.txt"
 filtered_file="$program_target/filtered_subs.txt"
 live_file="$program_target/live.txt"
+live_urls_file="$program_target/live_urls.txt"
 seed_file="$program_target/discovery_seeds.txt"
 scope_file="$program_target/scope_targets.txt"
 raw_subs_file="$program_target/subs.raw.txt"
@@ -76,15 +85,16 @@ dirsearch_output="$program_target/dirsearch.out"
 : >"$raw_subs_file"
 : >"$new_subs_file"
 : >"$dirsearch_output"
+: >"$live_urls_file"
 mkdir -p "$dirsearch_dir"
 
 mapfile -t in_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" in_scope)
 mapfile -t out_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" out_of_scope)
 
 for scope in "${in_scope[@]}"; do
-  base_scope="${scope#*.}"
-  if [[ "$base_scope" == "$scope" ]]; then
-    base_scope="$scope"
+  base_scope="$scope"
+  if [[ "$scope" == \*.* ]]; then
+    base_scope="${scope#*.}"
   fi
   printf '%s\n' "$base_scope" >>"$seed_file"
   printf '%s\n' "$base_scope" >>"$scope_file"
@@ -95,16 +105,19 @@ sort -u "$scope_file" -o "$scope_file" || true
 stage_log "Discovery seeds prepared: $(line_count "$seed_file") domains"
 
 if [[ "${RECON_USE_SUBFINDER:-true}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
-  subfinder_args=(-dL "$seed_file" -silent)
+  subfinder_args=(-dL "$seed_file" -silent -config /dev/null)
   if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
-    subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
+    subfinder_args+=(-pc "$SUBFINDER_CONFIG_FILE")
   fi
+  debug_log "Running: subfinder ${subfinder_args[*]}"
   if ! subfinder "${subfinder_args[@]}" 2>>"$pipeline_log" \
+    | grep -E '^[A-Za-z0-9._-]+$' \
     | tee -a "$raw_subs_file" \
     | tee "$new_subs_file" >/dev/null; then
     stage_log "subfinder completed with errors"
   fi
 else
+  debug_log "subfinder unavailable or disabled; using scope seeds directly"
   cat "$seed_file" | tee -a "$raw_subs_file" | tee "$new_subs_file" >/dev/null
 fi
 
@@ -150,23 +163,48 @@ probe_live_host() {
 
 : >"$live_file"
 if [[ "${RECON_USE_HTTPX:-true}" == "true" ]] && command -v httpx >/dev/null 2>&1; then
+  debug_log "Running: httpx -l $filtered_file -silent -json -tech-detect -status-code"
   if ! httpx -l "$filtered_file" -silent -json -tech-detect -status-code >"$live_file" 2>>"$pipeline_log"; then
     stage_log "httpx completed with errors"
   fi
+  python3 - "$live_file" "$live_urls_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+urls = []
+if src.exists():
+    for line in src.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        url = record.get("url")
+        if url:
+            urls.append(url)
+dst.write_text("\n".join(urls) + ("\n" if urls else ""))
+PY
 else
   while IFS= read -r host; do
     [[ -z "$host" ]] && continue
-    probe_live_host "$host" >>"$live_file" || true
+    probe_live_host "$host" >>"$live_urls_file" || true
   done <"$filtered_file"
+  cp "$live_urls_file" "$live_file"
 fi
-stage_log "Probe complete: $(line_count "$live_file") live hosts"
+stage_log "Probe complete: $(line_count "$live_urls_file") live hosts"
 
 dirsearch_hits_file="$program_target/dirsearch_hits.txt"
 : >"$dirsearch_hits_file"
 
 if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
   if command -v dirsearch >/dev/null 2>&1; then
-    if ! dirsearch --urls-file="$live_file" --max-rate="${DIRSEARCH_MAX_RATE:-5}" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
+    debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-5} -o $dirsearch_output -O plain"
+    if ! dirsearch --urls-file="$live_urls_file" --max-rate="${DIRSEARCH_MAX_RATE:-5}" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
       stage_log "dirsearch completed with errors"
     fi
   else
