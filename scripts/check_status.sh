@@ -29,6 +29,10 @@ echo "== Cron =="
 crontab -l 2>/dev/null || true
 
 echo
+echo "== Weekly Scan =="
+printf 'DIRSEARCH_MAX_RATE=%s\n' "${DIRSEARCH_MAX_RATE:-5}"
+
+echo
 echo "== Jobs =="
 shopt -s nullglob
 for job in "$JOBS_DIR"/*.job; do

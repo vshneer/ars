@@ -68,10 +68,12 @@ seed_file="$program_target/discovery_seeds.txt"
 raw_subs_file="$program_target/subs.raw.txt"
 new_subs_file="$program_target/subs.new.txt"
 dirsearch_dir="$program_target/dirsearch"
+dirsearch_output="$program_target/dirsearch.out"
 
 : >"$seed_file"
 : >"$raw_subs_file"
 : >"$new_subs_file"
+: >"$dirsearch_output"
 mkdir -p "$dirsearch_dir"
 
 mapfile -t in_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" in_scope)
@@ -155,38 +157,18 @@ stage_log "Probe complete: $(line_count "$live_file") live hosts"
 dirsearch_hits_file="$program_target/dirsearch_hits.txt"
 : >"$dirsearch_hits_file"
 
-run_dirsearch() {
-  local url="$1"
-  local safe_name
-  safe_name="${url#*://}"
-  safe_name="${safe_name//\//_}"
-  safe_name="${safe_name//:/_}"
-  local out_file="$dirsearch_dir/${safe_name}.raw"
-
-  if command -v dirsearch >/dev/null 2>&1; then
-    timeout "${DIRSEARCH_TIMEOUT:-10m}" dirsearch -u "$url" >"$out_file" 2>>"$pipeline_log" || true
-    return 0
-  fi
-
-  if command -v python3.11 >/dev/null 2>&1 && python3.11 -m dirsearch -h >/dev/null 2>&1; then
-    timeout "${DIRSEARCH_TIMEOUT:-10m}" python3.11 -m dirsearch -u "$url" >"$out_file" 2>>"$pipeline_log" || true
-    return 0
-  fi
-
-  stage_log "dirsearch unavailable; skipping $url"
-  return 1
-}
-
 if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
-  while IFS= read -r url; do
-    [[ -z "$url" ]] && continue
-    run_dirsearch "$url" || true
-  done <"$live_file"
+  if command -v dirsearch >/dev/null 2>&1; then
+    if ! dirsearch --urls-file="$live_file" --max-rate="${DIRSEARCH_MAX_RATE:-5}" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
+      stage_log "dirsearch completed with errors"
+    fi
+  else
+    stage_log "dirsearch unavailable; skipping scan"
+  fi
 fi
 
-raw_dirsearch_files=("$dirsearch_dir"/*.raw)
-if [[ ${#raw_dirsearch_files[@]} -gt 0 ]]; then
-  cat "${raw_dirsearch_files[@]}" >"$dirsearch_hits_file" 2>/dev/null || true
+if [[ -f "$dirsearch_output" ]]; then
+  cp "$dirsearch_output" "$dirsearch_hits_file"
 fi
 stage_log "Dirsearch complete: $(line_count "$dirsearch_hits_file") output lines"
 

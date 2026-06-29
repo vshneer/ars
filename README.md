@@ -26,6 +26,8 @@ Set these to `true` on the EC2 host to enable the external discovery/probing too
 - `RECON_USE_HTTPX`
 - `RECON_USE_DIRSEARCH`
 
+The scan cadence is weekly via cron.
+
 Without those flags, the repo still runs with deterministic fallback behavior for local development.
 
 ## Config Files
@@ -109,6 +111,8 @@ Add these on the EC2 host if you want uploads:
 
 - `FINDINGS_S3_BUCKET`
 - `FINDINGS_S3_PREFIX` (optional, default `recon`)
+
+`dirsearch` is rate-limited with `--max-rate=5` by default. Override with `DIRSEARCH_MAX_RATE` if needed.
 
 Terraform provisions the S3 bucket automatically and exposes its name as an output.
 

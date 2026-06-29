@@ -219,10 +219,9 @@ link_runtime_programs() {
 }
 
 install_cron() {
-  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon}"
-  local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
-  local run_job="* * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
-  local update_job="0 */6 * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/update_templates.sh >> $LOG_DIR/templates.log 2>&1"
+  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon} DIRSEARCH_MAX_RATE=${DIRSEARCH_MAX_RATE:-5}"
+  local sync_job="0 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
+  local run_job="15 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
   local path_line="PATH=/usr/local/bin:/usr/bin:/bin"
 
   local current
@@ -240,7 +239,6 @@ install_cron() {
     printf '%s\n' "$cleaned_current"
     printf '%s\n' "$sync_job"
     printf '%s\n' "$run_job"
-    printf '%s\n' "$update_job"
   } | awk 'NF && !seen[$0]++' | {
     if [[ "$INSTALL_USER" == "$(id -un)" ]]; then
       crontab -
