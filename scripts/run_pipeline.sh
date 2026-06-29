@@ -65,12 +65,14 @@ subs_file="$program_target/subs.txt"
 filtered_file="$program_target/filtered_subs.txt"
 live_file="$program_target/live.txt"
 seed_file="$program_target/discovery_seeds.txt"
+scope_file="$program_target/scope_targets.txt"
 raw_subs_file="$program_target/subs.raw.txt"
 new_subs_file="$program_target/subs.new.txt"
 dirsearch_dir="$program_target/dirsearch"
 dirsearch_output="$program_target/dirsearch.out"
 
 : >"$seed_file"
+: >"$scope_file"
 : >"$raw_subs_file"
 : >"$new_subs_file"
 : >"$dirsearch_output"
@@ -85,9 +87,11 @@ for scope in "${in_scope[@]}"; do
     base_scope="$scope"
   fi
   printf '%s\n' "$base_scope" >>"$seed_file"
+  printf '%s\n' "$base_scope" >>"$scope_file"
 done
 
 sort -u "$seed_file" -o "$seed_file" || true
+sort -u "$scope_file" -o "$scope_file" || true
 stage_log "Discovery seeds prepared: $(line_count "$seed_file") domains"
 
 if [[ "${RECON_USE_SUBFINDER:-true}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
@@ -124,8 +128,11 @@ append_unique_lines() {
 append_unique_lines "$new_subs_file" "$subs_file" "$subs_file"
 stage_log "Discovery complete: $(line_count "$raw_subs_file") raw hosts, $(line_count "$subs_file") unique total, $(line_count "$new_subs_file") new this run"
 
-python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$new_subs_file" "$filtered_file"
-stage_log "Scope filter complete: $(line_count "$filtered_file") new hosts after out_of_scope removal"
+probe_candidates="$program_target/probe_candidates.txt"
+cat "$new_subs_file" "$scope_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$probe_candidates"
+
+python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$probe_candidates" "$filtered_file"
+stage_log "Scope filter complete: $(line_count "$filtered_file") probe candidates after out_of_scope removal"
 
 probe_live_host() {
   local host="$1"
