@@ -1,0 +1,31 @@
+program: shopify
+platform: hackerone
+bounty: true
+
+in_scope:
+  - "*.pci.shopifyinc.com"
+  - "*.shopifycs.com"
+  - admin.shopify.com
+  - arrive-server.shopifycloud.com
+  - shopify.plus
+  - shop.app
+  - shopifyinbox.com
+  - linkpop.com
+  - "*.shopifycloud.com"
+  - "*.shopifykloud.com"
+  - "*.shopify.com"
+  - "*.shopify.io"
+  - accounts.shopify.com
+  - partners.shopify.com
+  - your-store.myshopify.com
+
+out_of_scope:
+  - community.shopify.dev
+  - academy.shopify.com
+  - supplier-portal.shopifycloud.com
+  - community.shopify.com
+  - livechat.shopify.com
+  - cdn.shopify.com
+  - "*.email.shopify.com"
+  - investors.shopify.com
+

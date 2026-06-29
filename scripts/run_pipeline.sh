@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+shopt -s nullglob
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
@@ -39,49 +41,6 @@ line_count() {
   fi
 }
 
-json_record_count() {
-  local file="$1"
-  python3 - "$file" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-if not path.exists() or path.stat().st_size == 0:
-    print(0)
-    raise SystemExit(0)
-
-text = path.read_text().strip()
-if not text:
-    print(0)
-    raise SystemExit(0)
-
-if text.startswith('['):
-    print(len(json.loads(text)))
-else:
-    print(sum(1 for line in text.splitlines() if line.strip()))
-PY
-}
-
-append_unique_lines() {
-  local input_file="$1"
-  local output_file="$2"
-  local existing_file="$3"
-
-  if command -v anew >/dev/null 2>&1; then
-    local new_file
-    new_file="$(mktemp)"
-    cat "$input_file" | anew "$existing_file" >"$new_file"
-    cat "$existing_file" "$new_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
-    mv "$output_file.tmp" "$output_file"
-    rm -f "$new_file"
-    return 0
-  fi
-
-  cat "$existing_file" "$input_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
-  mv "$output_file.tmp" "$output_file"
-}
-
 lock_dir="$program_target/lock"
 lock_acquired=0
 cleanup() {
@@ -98,7 +57,6 @@ if ! mkdir "$lock_dir" 2>/dev/null; then
 fi
 
 lock_acquired=1
-
 update_job_status "$program" running "$started_at" ""
 
 stage_log "Pipeline started"
@@ -106,15 +64,15 @@ stage_log "Pipeline started"
 subs_file="$program_target/subs.txt"
 filtered_file="$program_target/filtered_subs.txt"
 live_file="$program_target/live.txt"
-findings_raw="$program_target/findings.raw"
-findings_file="$program_target/findings.json"
 seed_file="$program_target/discovery_seeds.txt"
 raw_subs_file="$program_target/subs.raw.txt"
 new_subs_file="$program_target/subs.new.txt"
+dirsearch_dir="$program_target/dirsearch"
 
 : >"$seed_file"
 : >"$raw_subs_file"
 : >"$new_subs_file"
+mkdir -p "$dirsearch_dir"
 
 mapfile -t in_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" in_scope)
 mapfile -t out_scope < <(python3 "$SCRIPT_DIR/reconlib.py" list "$yaml" out_of_scope)
@@ -124,14 +82,13 @@ for scope in "${in_scope[@]}"; do
   if [[ "$base_scope" == "$scope" ]]; then
     base_scope="$scope"
   fi
-
   printf '%s\n' "$base_scope" >>"$seed_file"
 done
 
 sort -u "$seed_file" -o "$seed_file" || true
 stage_log "Discovery seeds prepared: $(line_count "$seed_file") domains"
 
-if [[ "${RECON_USE_SUBFINDER:-false}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
+if [[ "${RECON_USE_SUBFINDER:-true}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
   subfinder_args=(-dL "$seed_file" -silent)
   if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
     subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
@@ -145,9 +102,26 @@ else
   cat "$seed_file" | tee -a "$raw_subs_file" | tee "$new_subs_file" >/dev/null
 fi
 
-append_unique_lines "$new_subs_file" "$subs_file" "$subs_file"
+append_unique_lines() {
+  local input_file="$1"
+  local output_file="$2"
+  local existing_file="$3"
+  if command -v anew >/dev/null 2>&1; then
+    local new_file
+    new_file="$(mktemp)"
+    cat "$input_file" | anew "$existing_file" >"$new_file"
+    cat "$existing_file" "$new_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
+    mv "$output_file.tmp" "$output_file"
+    rm -f "$new_file"
+    return 0
+  fi
+  cat "$existing_file" "$input_file" 2>/dev/null | awk 'NF && !seen[$0]++' >"$output_file.tmp"
+  mv "$output_file.tmp" "$output_file"
+}
 
+append_unique_lines "$new_subs_file" "$subs_file" "$subs_file"
 stage_log "Discovery complete: $(line_count "$raw_subs_file") raw hosts, $(line_count "$subs_file") unique total, $(line_count "$new_subs_file") new this run"
+
 python3 "$SCRIPT_DIR/reconlib.py" filter-out-scope "$yaml" "$new_subs_file" "$filtered_file"
 stage_log "Scope filter complete: $(line_count "$filtered_file") new hosts after out_of_scope removal"
 
@@ -158,19 +132,15 @@ probe_live_host() {
     url="${scheme}://${host}"
     status="$(curl -k -s -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$url" 2>/dev/null || true)"
     case "$status" in
-      000|'')
-        ;;
-      *)
-        printf '%s\n' "$url"
-        return 0
-        ;;
+      000|'') ;;
+      *) printf '%s\n' "$url"; return 0 ;;
     esac
   done
   return 1
 }
 
 : >"$live_file"
-if [[ "${RECON_USE_HTTPX:-false}" == "true" ]] && command -v httpx >/dev/null 2>&1; then
+if [[ "${RECON_USE_HTTPX:-true}" == "true" ]] && command -v httpx >/dev/null 2>&1; then
   if ! httpx -l "$filtered_file" -silent -json -tech-detect -status-code >"$live_file" 2>>"$pipeline_log"; then
     stage_log "httpx completed with errors"
   fi
@@ -182,29 +152,54 @@ else
 fi
 stage_log "Probe complete: $(line_count "$live_file") live hosts"
 
-if [[ "${RECON_USE_NUCLEI:-false}" == "true" ]] && [[ -s "$live_file" ]] && command -v nuclei >/dev/null 2>&1 && [[ -d "$NUCLEI_TEMPLATES_DIR" ]]; then
-  if ! nuclei -l "$live_file" -tags cves,misconfig,exposure -severity medium,high,critical -json -o "$findings_raw" -t "$NUCLEI_TEMPLATES_DIR" 2>>"$pipeline_log"; then
-    stage_log "nuclei completed with errors"
+dirsearch_hits_file="$program_target/dirsearch_hits.txt"
+: >"$dirsearch_hits_file"
+
+run_dirsearch() {
+  local url="$1"
+  local safe_name
+  safe_name="${url#*://}"
+  safe_name="${safe_name//\//_}"
+  safe_name="${safe_name//:/_}"
+  local out_file="$dirsearch_dir/${safe_name}.raw"
+
+  if command -v dirsearch >/dev/null 2>&1; then
+    timeout "${DIRSEARCH_TIMEOUT:-10m}" dirsearch -u "$url" >"$out_file" 2>>"$pipeline_log" || true
+    return 0
   fi
+
+  if command -v python3.11 >/dev/null 2>&1 && python3.11 -m dirsearch -h >/dev/null 2>&1; then
+    timeout "${DIRSEARCH_TIMEOUT:-10m}" python3.11 -m dirsearch -u "$url" >"$out_file" 2>>"$pipeline_log" || true
+    return 0
+  fi
+
+  stage_log "dirsearch unavailable; skipping $url"
+  return 1
+}
+
+if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
+  while IFS= read -r url; do
+    [[ -z "$url" ]] && continue
+    run_dirsearch "$url" || true
+  done <"$live_file"
+fi
+
+raw_dirsearch_files=("$dirsearch_dir"/*.raw)
+if [[ ${#raw_dirsearch_files[@]} -gt 0 ]]; then
+  cat "${raw_dirsearch_files[@]}" >"$dirsearch_hits_file" 2>/dev/null || true
+fi
+stage_log "Dirsearch complete: $(line_count "$dirsearch_hits_file") output lines"
+
+if [[ -n "$FINDINGS_S3_BUCKET" ]]; then
+  run_stamp="$(timestamp | tr ': ' '--')"
+  s3_prefix="${FINDINGS_S3_PREFIX%/}/$program/$run_stamp"
+  aws s3 cp "$program_target" "s3://$FINDINGS_S3_BUCKET/$s3_prefix" --recursive >>"$pipeline_log" 2>&1 || stage_log "S3 upload completed with errors"
+  stage_log "Uploaded artifacts to s3://$FINDINGS_S3_BUCKET/$s3_prefix"
 else
-  : >"$findings_raw"
-fi
-stage_log "Scan complete: $(line_count "$findings_raw") raw findings"
-
-python3 "$SCRIPT_DIR/reconlib.py" annotate-findings "$program" "$findings_raw" "$findings_file"
-stage_log "Annotation complete: $(json_record_count "$findings_file") findings"
-
-finding_count="$(json_record_count "$findings_file")"
-
-if [[ "$finding_count" -gt 0 ]] && command -v notify >/dev/null 2>&1 && [[ -f "$NOTIFY_CONFIG_FILE" ]]; then
-  if ! notify -pc "$NOTIFY_CONFIG_FILE" <"$findings_file" 2>>"$pipeline_log"; then
-    stage_log "notify completed with errors"
-  fi
-elif [[ "$finding_count" -gt 0 ]]; then
-  stage_log "Skipping notify because $NOTIFY_CONFIG_FILE is missing"
+  stage_log "Skipping S3 upload because FINDINGS_S3_BUCKET is missing"
 fi
 
-stage_log "Summary: new=$(line_count "$new_subs_file") filtered=$(line_count "$filtered_file") probed=$(line_count "$live_file") findings=$finding_count"
+stage_log "Summary: new=$(line_count "$new_subs_file") filtered=$(line_count "$filtered_file") probed=$(line_count "$live_file") dirsearch=$(line_count "$dirsearch_hits_file")"
 
 finished_at="$(timestamp)"
 update_job_status "$program" complete "$started_at" "$finished_at"

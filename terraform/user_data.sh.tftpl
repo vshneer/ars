@@ -7,6 +7,8 @@ apt-get install -y awscli git
 
 export AWS_REGION="${aws_region}"
 export AWS_DEFAULT_REGION="${aws_region}"
+export FINDINGS_S3_BUCKET="${findings_s3_bucket}"
+export FINDINGS_S3_PREFIX="${findings_s3_prefix}"
 
 install_user="ubuntu"
 install_home="/home/$install_user"
@@ -67,6 +69,8 @@ export INSTALL_USER="$install_user"
 export REPO_URL="${repo_clone_url}"
 export RECON_USE_SUBFINDER="${enable_scanners}"
 export RECON_USE_HTTPX="${enable_scanners}"
-export RECON_USE_NUCLEI="${enable_scanners}"
+export RECON_USE_DIRSEARCH="${enable_dirsearch}"
+export FINDINGS_S3_BUCKET="${findings_s3_bucket}"
+export FINDINGS_S3_PREFIX="${findings_s3_prefix}"
 
 "$repo_dir/scripts/setup_ec2.sh"

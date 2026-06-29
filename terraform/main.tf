@@ -2,6 +2,8 @@ provider "aws" {
   region = var.aws_region
 }
 
+provider "random" {}
+
 data "aws_caller_identity" "current" {}
 data "aws_vpc" "default" {
   default = true
@@ -39,6 +41,39 @@ locals {
     local.github_key_param_arn,
   ])
   scanner_env = var.enable_scanners ? "true" : "false"
+}
+
+resource "random_id" "findings_bucket" {
+  byte_length = 4
+}
+
+resource "aws_s3_bucket" "findings" {
+  bucket = "${var.name_prefix}-findings-${data.aws_caller_identity.current.account_id}-${random_id.findings_bucket.hex}"
+}
+
+resource "aws_s3_bucket_public_access_block" "findings" {
+  bucket                  = aws_s3_bucket.findings.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "findings" {
+  bucket = aws_s3_bucket.findings.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "findings" {
+  bucket = aws_s3_bucket.findings.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
 }
 
 resource "aws_key_pair" "this" {
@@ -117,6 +152,34 @@ resource "aws_iam_role_policy" "ssm_read" {
   })
 }
 
+resource "aws_iam_role_policy" "s3_write" {
+  name = "${var.name_prefix}-s3-write"
+  role = aws_iam_role.this.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:AbortMultipartUpload"
+        ]
+        Resource = "${aws_s3_bucket.findings.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.findings.arn
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   role       = aws_iam_role.this.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -143,6 +206,9 @@ resource "aws_instance" "this" {
     enable_scanners                 = local.scanner_env
     name_prefix                     = var.name_prefix
     aws_region                      = var.aws_region
+    findings_s3_bucket              = aws_s3_bucket.findings.bucket
+    findings_s3_prefix              = var.findings_s3_prefix
+    enable_dirsearch                = var.enable_dirsearch ? "true" : "false"
   })
 
   root_block_device {

@@ -58,6 +58,18 @@ variable "subfinder_config_parameter_name" {
 
 variable "enable_scanners" {
   type        = bool
-  description = "Enable subfinder, httpx, and nuclei in cron"
-  default     = false
+  description = "Enable subfinder, httpx, and dirsearch in cron"
+  default     = true
+}
+
+variable "enable_dirsearch" {
+  type        = bool
+  description = "Install and run dirsearch in the pipeline"
+  default     = true
+}
+
+variable "findings_s3_prefix" {
+  type        = string
+  description = "S3 prefix for uploaded artifacts"
+  default     = "recon"
 }

@@ -13,3 +13,7 @@ output "security_group_id" {
 output "ssh_command" {
   value = "ssh -i <your-private-key> ubuntu@${aws_instance.this.public_ip}"
 }
+
+output "findings_bucket" {
+  value = aws_s3_bucket.findings.bucket
+}

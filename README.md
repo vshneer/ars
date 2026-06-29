@@ -20,11 +20,11 @@ export RECON_ROOT=/recon
 
 ## Scanner Flags
 
-Set these to `true` on the EC2 host to enable the external ProjectDiscovery tools:
+Set these to `true` on the EC2 host to enable the external discovery/probing tools:
 
 - `RECON_USE_SUBFINDER`
 - `RECON_USE_HTTPX`
-- `RECON_USE_NUCLEI`
+- `RECON_USE_DIRSEARCH`
 
 Without those flags, the repo still runs with deterministic fallback behavior for local development.
 
@@ -100,6 +100,17 @@ The AWS identity used by the workflow needs permission to:
 - `ssm:ListCommandInvocations`
 
 The EC2 host must have the SSM managed instance role attached, which Terraform now configures.
+
+## Dirsearch and S3
+
+After probe, the pipeline runs `dirsearch` against live hosts and uploads artifacts to S3 when `FINDINGS_S3_BUCKET` is set.
+
+Add these on the EC2 host if you want uploads:
+
+- `FINDINGS_S3_BUCKET`
+- `FINDINGS_S3_PREFIX` (optional, default `recon`)
+
+Terraform provisions the S3 bucket automatically and exposes its name as an output.
 
 ## Manual Local Testing
 

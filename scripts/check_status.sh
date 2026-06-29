@@ -6,13 +6,23 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 echo "== Tools =="
-for tool in subfinder httpx nuclei notify anew; do
+for tool in subfinder httpx dirsearch anew; do
   if command -v "$tool" >/dev/null 2>&1; then
     printf '%s: %s\n' "$tool" "$(command -v "$tool")"
   else
     printf '%s: missing\n' "$tool"
   fi
 done
+
+echo
+echo "== Python =="
+python3 --version 2>/dev/null || true
+python3.11 --version 2>/dev/null || true
+
+echo
+echo "== S3 =="
+printf 'FINDINGS_S3_BUCKET=%s\n' "${FINDINGS_S3_BUCKET:-unset}"
+printf 'FINDINGS_S3_PREFIX=%s\n' "${FINDINGS_S3_PREFIX:-recon}"
 
 echo
 echo "== Cron =="

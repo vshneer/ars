@@ -45,11 +45,22 @@ install_packages() {
     git \
     cron \
     jq \
+    software-properties-common \
     python3 \
     python3-pip \
     unzip
 
   systemctl enable --now amazon-ssm-agent 2>/dev/null || true
+}
+
+install_python311() {
+  if command -v python3.11 >/dev/null 2>&1; then
+    return 0
+  fi
+
+  $sudo_cmd add-apt-repository -y ppa:deadsnakes/ppa >/dev/null 2>&1 || true
+  $sudo_cmd apt-get update
+  $sudo_cmd apt-get install -y python3.11 python3.11-venv python3.11-dev python3.11-distutils
 }
 
 setup_swap() {
@@ -89,7 +100,7 @@ install_go_toolchain() {
 
 install_go_tools() {
   export PATH="/usr/local/go/bin:$PATH"
-  export HOME="${HOME:-$INSTALL_HOME}"
+  export HOME="$INSTALL_HOME"
   export GOPATH="${GOPATH:-$HOME/go}"
   export PATH="$PATH:$GOPATH/bin"
   export GOMAXPROCS="${GOMAXPROCS:-1}"
@@ -118,7 +129,7 @@ ensure_tool() {
   fi
 
   export PATH="/usr/local/go/bin:$PATH"
-  export HOME="${HOME:-$INSTALL_HOME}"
+  export HOME="$INSTALL_HOME"
   export GOPATH="${GOPATH:-$HOME/go}"
   export PATH="$PATH:$GOPATH/bin"
   go install -p 1 "$package@latest"
@@ -133,9 +144,37 @@ ensure_tool() {
 verify_scanner_tooling() {
   ensure_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
   ensure_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
-  ensure_tool nuclei github.com/projectdiscovery/nuclei/v3/cmd/nuclei
-  ensure_tool notify github.com/projectdiscovery/notify/cmd/notify
   ensure_tool anew github.com/tomnomnom/anew
+}
+
+install_dirsearch_tool() {
+  install_python311
+
+  if command -v dirsearch >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! command -v python3.11 >/dev/null 2>&1; then
+    echo "python3.11 missing; dirsearch installation failed" >&2
+    exit 1
+  fi
+
+  export HOME="$INSTALL_HOME"
+  python3.11 -m ensurepip --upgrade >/dev/null 2>&1 || true
+  python3.11 -m pip install --user --upgrade pip >/dev/null 2>&1 || true
+  python3.11 -m pip install --user git+https://github.com/maurosoria/dirsearch.git >/dev/null 2>&1 || {
+    echo "dirsearch install failed" >&2
+    exit 1
+  }
+
+  if [[ -x "$INSTALL_HOME/.local/bin/dirsearch" ]]; then
+    $sudo_cmd ln -sf "$INSTALL_HOME/.local/bin/dirsearch" /usr/local/bin/dirsearch
+  fi
+
+  if ! command -v dirsearch >/dev/null 2>&1; then
+    echo "Failed to install required tool: dirsearch" >&2
+    exit 1
+  fi
 }
 
 setup_runtime() {
@@ -180,7 +219,7 @@ link_runtime_programs() {
 }
 
 install_cron() {
-  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_NUCLEI=${RECON_USE_NUCLEI:-true}"
+  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon}"
   local sync_job="*/5 * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
   local run_job="* * * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
   local update_job="0 */6 * * * RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/update_templates.sh >> $LOG_DIR/templates.log 2>&1"
@@ -217,6 +256,7 @@ main() {
   install_go_toolchain
   install_go_tools
   verify_scanner_tooling
+  install_dirsearch_tool
   setup_runtime
   setup_repo
   link_runtime_programs
