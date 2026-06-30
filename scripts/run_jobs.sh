@@ -31,7 +31,7 @@ for job in "$JOBS_DIR"/*.job; do
     pids=("${pids[@]:1}")
   done
 
-  "$SCRIPT_DIR/run_pipeline.sh" "$program" &
+  bash "$SCRIPT_DIR/run_pipeline.sh" "$program" &
   pids+=("$!")
 done
 
