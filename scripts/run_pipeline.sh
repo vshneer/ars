@@ -105,9 +105,12 @@ sort -u "$scope_file" -o "$scope_file" || true
 stage_log "Discovery seeds prepared: $(line_count "$seed_file") domains"
 
 if [[ "${RECON_USE_SUBFINDER:-true}" == "true" ]] && command -v subfinder >/dev/null 2>&1; then
-  subfinder_args=(-dL "$seed_file" -silent -config /dev/null)
+  subfinder_args=(-dL "$seed_file" -silent)
   if [[ -f "$SUBFINDER_CONFIG_FILE" ]]; then
-    subfinder_args+=(-pc "$SUBFINDER_CONFIG_FILE")
+    subfinder_args+=(-config "$SUBFINDER_CONFIG_FILE")
+  fi
+  if [[ -f "$SUBFINDER_PROVIDER_CONFIG_FILE" ]]; then
+    subfinder_args+=(-pc "$SUBFINDER_PROVIDER_CONFIG_FILE")
   fi
   debug_log "Running: subfinder ${subfinder_args[*]}"
   if ! subfinder "${subfinder_args[@]}" 2>>"$pipeline_log" \
@@ -203,8 +206,8 @@ dirsearch_hits_file="$program_target/dirsearch_hits.txt"
 
 if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
   if command -v dirsearch >/dev/null 2>&1; then
-    debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-5} -o $dirsearch_output -O plain"
-    if ! dirsearch --urls-file="$live_urls_file" --max-rate="${DIRSEARCH_MAX_RATE:-5}" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
+    debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-1} --threads=${DIRSEARCH_THREADS:-5} --delay=${DIRSEARCH_DELAY:-0.2} -o $dirsearch_output -O plain"
+    if ! dirsearch --urls-file="$live_urls_file" --max-rate="$DIRSEARCH_MAX_RATE" --threads="$DIRSEARCH_THREADS" --delay="$DIRSEARCH_DELAY" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
       stage_log "dirsearch completed with errors"
     fi
   else

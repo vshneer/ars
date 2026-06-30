@@ -179,6 +179,9 @@ install_dirsearch_tool() {
 
 setup_runtime() {
   $sudo_cmd mkdir -p "$PROGRAMS_DIR" "$TARGETS_DIR" "$JOBS_DIR" "$CONFIG_DIR" "$LOG_DIR"
+  if [[ ! -f "$CONFIG_DIR/subfinder.yaml" ]]; then
+    $sudo_cmd touch "$CONFIG_DIR/subfinder.yaml"
+  fi
   $sudo_cmd chown -R "$INSTALL_USER:$INSTALL_USER" "$RUNTIME_DIR"
   chmod 755 "$RUNTIME_DIR" "$PROGRAMS_DIR" "$TARGETS_DIR" "$JOBS_DIR" "$CONFIG_DIR" "$LOG_DIR"
 }
@@ -219,7 +222,7 @@ link_runtime_programs() {
 }
 
 install_cron() {
-  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon} DIRSEARCH_MAX_RATE=${DIRSEARCH_MAX_RATE:-5}"
+  local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon} DIRSEARCH_MAX_RATE=${DIRSEARCH_MAX_RATE:-1} DIRSEARCH_THREADS=${DIRSEARCH_THREADS:-5} DIRSEARCH_DELAY=${DIRSEARCH_DELAY:-0.2}"
   local sync_job="0 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
   local run_job="15 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
   local path_line="PATH=/usr/local/bin:/usr/bin:/bin"
@@ -261,7 +264,7 @@ main() {
   install_cron
 
   echo "EC2 setup complete."
-  echo "Next: copy config examples into $CONFIG_DIR and set RECON_USE_SUBFINDER/HTTPX/NUCLEI=true if desired."
+  echo "Next: copy config examples into $CONFIG_DIR and set RECON_USE_SUBFINDER/HTTPX/DIRSEARCH plus FINDINGS_S3_BUCKET if desired."
 }
 
 main "$@"

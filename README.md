@@ -36,6 +36,7 @@ Create server-local secrets on the EC2 host by copying the example files:
 
 ```bash
 cp /recon/config/notify-config.example.yaml /recon/config/notify-config.yaml
+cp /recon/config/subfinder.example.yaml /recon/config/subfinder.yaml
 cp /recon/config/subfinder-config.example.yaml /recon/config/subfinder-config.yaml
 chmod 600 /recon/config/*.yaml
 ```
@@ -112,7 +113,8 @@ Add these on the EC2 host if you want uploads:
 - `FINDINGS_S3_BUCKET`
 - `FINDINGS_S3_PREFIX` (optional, default `recon`)
 
-`dirsearch` is rate-limited with `--max-rate=5` by default. Override with `DIRSEARCH_MAX_RATE` if needed.
+`dirsearch` is rate-limited with `--max-rate=1` by default. Override with `DIRSEARCH_MAX_RATE` if needed.
+The pipeline also sets `--threads=5` and `--delay=0.2` by default for gentler scans.
 
 Terraform provisions the S3 bucket automatically and exposes its name as an output.
 
