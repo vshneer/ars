@@ -114,7 +114,7 @@ Add these on the EC2 host if you want uploads:
 - `FINDINGS_S3_PREFIX` (optional, default `recon`)
 
 `dirsearch` is rate-limited with `--max-rate=1` by default. Override with `DIRSEARCH_MAX_RATE` if needed.
-The pipeline also sets `--threads=5` and `--delay=0.2` by default for gentler scans.
+The pipeline also sets `--threads=5`, `--delay=0.2`, and `--include-status=200-299,403,500-599` by default for gentler and more relevant scans.
 
 Terraform provisions the S3 bucket automatically and exposes its name as an output.
 

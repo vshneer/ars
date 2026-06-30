@@ -206,8 +206,8 @@ dirsearch_hits_file="$program_target/dirsearch_hits.txt"
 
 if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
   if command -v dirsearch >/dev/null 2>&1; then
-    debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-1} --threads=${DIRSEARCH_THREADS:-5} --delay=${DIRSEARCH_DELAY:-0.2} -o $dirsearch_output -O plain"
-    if ! dirsearch --urls-file="$live_urls_file" --max-rate="$DIRSEARCH_MAX_RATE" --threads="$DIRSEARCH_THREADS" --delay="$DIRSEARCH_DELAY" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
+    debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-1} --threads=${DIRSEARCH_THREADS:-5} --delay=${DIRSEARCH_DELAY:-0.2} -i ${DIRSEARCH_INCLUDE_STATUS:-200-299,403,500-599} -o $dirsearch_output -O plain"
+    if ! dirsearch --urls-file="$live_urls_file" --max-rate="$DIRSEARCH_MAX_RATE" --threads="$DIRSEARCH_THREADS" --delay="$DIRSEARCH_DELAY" -i "$DIRSEARCH_INCLUDE_STATUS" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
       stage_log "dirsearch completed with errors"
     fi
   else

@@ -33,6 +33,7 @@ echo "== Weekly Scan =="
 printf 'DIRSEARCH_MAX_RATE=%s\n' "${DIRSEARCH_MAX_RATE:-1}"
 printf 'DIRSEARCH_THREADS=%s\n' "${DIRSEARCH_THREADS:-5}"
 printf 'DIRSEARCH_DELAY=%s\n' "${DIRSEARCH_DELAY:-0.2}"
+printf 'DIRSEARCH_INCLUDE_STATUS=%s\n' "${DIRSEARCH_INCLUDE_STATUS:-200-299,403,500-599}"
 
 echo
 echo "== Subfinder Config =="

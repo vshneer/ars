@@ -108,12 +108,10 @@ install_go_tools() {
 
   go install -p 1 github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
   go install -p 1 github.com/projectdiscovery/httpx/cmd/httpx@latest
-  go install -p 1 github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-  go install -p 1 github.com/projectdiscovery/notify/cmd/notify@latest
   go install -p 1 github.com/tomnomnom/anew@latest
 
   $sudo_cmd mkdir -p /usr/local/bin
-  for bin in subfinder httpx nuclei notify anew; do
+  for bin in subfinder httpx anew; do
     if [[ -x "$GOPATH/bin/$bin" ]]; then
       $sudo_cmd ln -sf "$GOPATH/bin/$bin" "/usr/local/bin/$bin"
     fi
