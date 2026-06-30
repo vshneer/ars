@@ -111,11 +111,15 @@ install_go_tools() {
   go install -p 1 github.com/tomnomnom/anew@latest
 
   $sudo_cmd mkdir -p /usr/local/bin
-  for bin in subfinder httpx anew; do
+  for bin in subfinder anew; do
     if [[ -x "$GOPATH/bin/$bin" ]]; then
       $sudo_cmd ln -sf "$GOPATH/bin/$bin" "/usr/local/bin/$bin"
     fi
   done
+
+  if [[ -x "$GOPATH/bin/httpx" ]]; then
+    $sudo_cmd ln -sf "$GOPATH/bin/httpx" /usr/local/bin/pd-httpx
+  fi
 }
 
 ensure_tool() {
@@ -141,8 +145,21 @@ ensure_tool() {
 
 verify_scanner_tooling() {
   ensure_tool subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder
-  ensure_tool httpx github.com/projectdiscovery/httpx/cmd/httpx
   ensure_tool anew github.com/tomnomnom/anew
+
+  if ! command -v pd-httpx >/dev/null 2>&1; then
+    export PATH="/usr/local/go/bin:$PATH"
+    export HOME="$INSTALL_HOME"
+    export GOPATH="${GOPATH:-$HOME/go}"
+    export PATH="$PATH:$GOPATH/bin"
+    go install -p 1 github.com/projectdiscovery/httpx/cmd/httpx@latest
+    $sudo_cmd ln -sf "$GOPATH/bin/httpx" /usr/local/bin/pd-httpx
+  fi
+
+  if ! command -v pd-httpx >/dev/null 2>&1; then
+    echo "Failed to install required tool: pd-httpx" >&2
+    exit 1
+  fi
 }
 
 install_dirsearch_tool() {
@@ -182,6 +199,20 @@ setup_runtime() {
   fi
   $sudo_cmd chown -R "$INSTALL_USER:$INSTALL_USER" "$RUNTIME_DIR"
   chmod 755 "$RUNTIME_DIR" "$PROGRAMS_DIR" "$TARGETS_DIR" "$JOBS_DIR" "$CONFIG_DIR" "$LOG_DIR"
+}
+
+persist_runtime_env() {
+  local runtime_env_file="$CONFIG_DIR/runtime.env"
+  if [[ -z "${FINDINGS_S3_BUCKET:-}" && -z "${FINDINGS_S3_PREFIX:-}" ]]; then
+    return 0
+  fi
+
+  {
+    printf 'FINDINGS_S3_BUCKET=%s\n' "${FINDINGS_S3_BUCKET:-}"
+    printf 'FINDINGS_S3_PREFIX=%s\n' "${FINDINGS_S3_PREFIX:-recon}"
+  } | $sudo_cmd tee "$runtime_env_file" >/dev/null
+  $sudo_cmd chown "$INSTALL_USER:$INSTALL_USER" "$runtime_env_file"
+  $sudo_cmd chmod 600 "$runtime_env_file"
 }
 
 setup_repo() {
@@ -266,6 +297,7 @@ main() {
   verify_scanner_tooling
   install_dirsearch_tool
   setup_runtime
+  persist_runtime_env
   setup_repo
   load_runtime_env
   link_runtime_programs

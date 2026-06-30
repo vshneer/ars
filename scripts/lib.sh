@@ -8,6 +8,19 @@ TARGETS_DIR="${TARGETS_DIR:-$RECON_ROOT/targets}"
 JOBS_DIR="${JOBS_DIR:-$RECON_ROOT/jobs}"
 CONFIG_DIR="${CONFIG_DIR:-$RECON_ROOT/config}"
 LOG_DIR="${LOG_DIR:-$RECON_ROOT/logs}"
+RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-$CONFIG_DIR/runtime.env}"
+
+if [[ -f "$RUNTIME_ENV_FILE" ]]; then
+  while IFS='=' read -r key value; do
+    [[ -z "$key" ]] && continue
+    [[ "$key" == '#'* ]] && continue
+    if [[ -z "${!key+x}" || -z "${!key}" ]]; then
+      printf -v "$key" '%s' "$value"
+      export "$key"
+    fi
+  done <"$RUNTIME_ENV_FILE"
+fi
+
 NUCLEI_TEMPLATES_DIR="${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}"
 SUBFINDER_CONFIG_FILE="${SUBFINDER_CONFIG_FILE:-$CONFIG_DIR/subfinder.yaml}"
 SUBFINDER_PROVIDER_CONFIG_FILE="${SUBFINDER_PROVIDER_CONFIG_FILE:-$CONFIG_DIR/subfinder-config.yaml}"
@@ -18,6 +31,7 @@ DIRSEARCH_MAX_RATE="${DIRSEARCH_MAX_RATE:-1}"
 DIRSEARCH_THREADS="${DIRSEARCH_THREADS:-5}"
 DIRSEARCH_DELAY="${DIRSEARCH_DELAY:-0.2}"
 DIRSEARCH_INCLUDE_STATUS="${DIRSEARCH_INCLUDE_STATUS:-200-299,403,500-599}"
+HTTPX_BIN="${HTTPX_BIN:-pd-httpx}"
 
 mkdir -p "$PROGRAMS_DIR" "$TARGETS_DIR" "$JOBS_DIR" "$CONFIG_DIR" "$LOG_DIR"
 

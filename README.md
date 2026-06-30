@@ -120,17 +120,25 @@ Terraform provisions the S3 bucket automatically and exposes its name as an outp
 
 ## Manual Local Testing
 
-Use a temporary root so you do not touch `/recon`:
+Use a temporary root so you do not touch `/recon`.
+For a cheap smoke test, create a tiny program and skip passive discovery entirely:
 
 ```bash
 tmp=$(mktemp -d)
 mkdir -p "$tmp/programs"
-cp programs/airbnb.yaml "$tmp/programs/airbnb.yaml"
-RECON_ROOT="$tmp" RECON_USE_SUBFINDER=false RECON_USE_HTTPX=false RECON_USE_NUCLEI=false ./scripts/sync_programs.sh
-RECON_ROOT="$tmp" RECON_USE_SUBFINDER=false RECON_USE_HTTPX=false RECON_USE_NUCLEI=false ./scripts/run_jobs.sh
+cat > "$tmp/programs/smoke.yaml" <<'EOF'
+program: smoke
+in_scope:
+  - example.com
+  - www.example.com
+out_of_scope:
+EOF
+
+RECON_ROOT="$tmp" RECON_USE_SUBFINDER=false RECON_USE_HTTPX=true RECON_USE_DIRSEARCH=true ./scripts/sync_programs.sh
+RECON_ROOT="$tmp" RECON_USE_SUBFINDER=false RECON_USE_HTTPX=true RECON_USE_DIRSEARCH=true ./scripts/run_jobs.sh
 ```
 
-Check the output files in `$tmp/targets/airbnb/`.
+Check the output files in `$tmp/targets/smoke/`.
 
 Pipeline outputs are cumulative:
 

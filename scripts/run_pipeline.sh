@@ -165,9 +165,9 @@ probe_live_host() {
 }
 
 : >"$live_file"
-if [[ "${RECON_USE_HTTPX:-true}" == "true" ]] && command -v httpx >/dev/null 2>&1; then
-  debug_log "Running: httpx -l $filtered_file -silent -json -tech-detect -status-code"
-  if ! httpx -l "$filtered_file" -silent -json -tech-detect -status-code >"$live_file" 2>>"$pipeline_log"; then
+if [[ "${RECON_USE_HTTPX:-true}" == "true" ]] && command -v "$HTTPX_BIN" >/dev/null 2>&1; then
+  debug_log "Running: $HTTPX_BIN -l $filtered_file -silent -json -tech-detect -status-code"
+  if ! "$HTTPX_BIN" -l "$filtered_file" -silent -json -tech-detect -status-code >"$live_file" 2>>"$pipeline_log"; then
     stage_log "httpx completed with errors"
   fi
   python3 - "$live_file" "$live_urls_file" <<'PY'
@@ -204,7 +204,7 @@ stage_log "Probe complete: $(line_count "$live_urls_file") live hosts"
 dirsearch_hits_file="$program_target/dirsearch_hits.txt"
 : >"$dirsearch_hits_file"
 
-if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_file" ]]; then
+if [[ "${RECON_USE_DIRSEARCH:-true}" == "true" ]] && [[ -s "$live_urls_file" ]]; then
   if command -v dirsearch >/dev/null 2>&1; then
     debug_log "Running: dirsearch --urls-file=$live_urls_file --max-rate=${DIRSEARCH_MAX_RATE:-1} --threads=${DIRSEARCH_THREADS:-5} --delay=${DIRSEARCH_DELAY:-0.2} -i ${DIRSEARCH_INCLUDE_STATUS:-200-299,403,500-599} -o $dirsearch_output -O plain"
     if ! dirsearch --urls-file="$live_urls_file" --max-rate="$DIRSEARCH_MAX_RATE" --threads="$DIRSEARCH_THREADS" --delay="$DIRSEARCH_DELAY" -i "$DIRSEARCH_INCLUDE_STATUS" -o "$dirsearch_output" -O plain 2>>"$pipeline_log"; then
@@ -229,7 +229,7 @@ else
   stage_log "Skipping S3 upload because FINDINGS_S3_BUCKET is missing"
 fi
 
-stage_log "Summary: new=$(line_count "$new_subs_file") filtered=$(line_count "$filtered_file") probed=$(line_count "$live_file") dirsearch=$(line_count "$dirsearch_hits_file")"
+stage_log "Summary: new=$(line_count "$new_subs_file") filtered=$(line_count "$filtered_file") probed=$(line_count "$live_urls_file") dirsearch=$(line_count "$dirsearch_hits_file")"
 
 finished_at="$(timestamp)"
 update_job_status "$program" complete "$started_at" "$finished_at"

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 echo "== Tools =="
-for tool in subfinder httpx dirsearch anew; do
+for tool in subfinder pd-httpx httpx dirsearch anew; do
   if command -v "$tool" >/dev/null 2>&1; then
     printf '%s: %s\n' "$tool" "$(command -v "$tool")"
   else
