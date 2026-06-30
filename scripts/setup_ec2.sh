@@ -212,6 +212,14 @@ setup_repo() {
   fi
 }
 
+load_runtime_env() {
+  local runtime_env_file="$CONFIG_DIR/runtime.env"
+  if [[ -f "$runtime_env_file" ]]; then
+    # shellcheck disable=SC1090
+    source "$runtime_env_file"
+  fi
+}
+
 link_runtime_programs() {
   if [[ -d "$REPO_DIR/programs" ]]; then
     rm -rf "$PROGRAMS_DIR"
@@ -220,6 +228,7 @@ link_runtime_programs() {
 }
 
 install_cron() {
+  load_runtime_env
   local scanner_env="RECON_USE_SUBFINDER=${RECON_USE_SUBFINDER:-true} RECON_USE_HTTPX=${RECON_USE_HTTPX:-true} RECON_USE_DIRSEARCH=${RECON_USE_DIRSEARCH:-true} FINDINGS_S3_BUCKET=${FINDINGS_S3_BUCKET:-} FINDINGS_S3_PREFIX=${FINDINGS_S3_PREFIX:-recon} DIRSEARCH_MAX_RATE=${DIRSEARCH_MAX_RATE:-1} DIRSEARCH_THREADS=${DIRSEARCH_THREADS:-5} DIRSEARCH_DELAY=${DIRSEARCH_DELAY:-0.2}"
   local sync_job="0 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/sync_programs.sh >> $LOG_DIR/scheduler.log 2>&1"
   local run_job="15 3 * * 0 RECON_ROOT=$RUNTIME_DIR $scanner_env $REPO_DIR/scripts/run_jobs.sh >> $LOG_DIR/workers.log 2>&1"
@@ -258,6 +267,7 @@ main() {
   install_dirsearch_tool
   setup_runtime
   setup_repo
+  load_runtime_env
   link_runtime_programs
   install_cron
 

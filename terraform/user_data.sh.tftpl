@@ -23,6 +23,13 @@ chown -R "$install_user:$install_user" "/home/$install_user"
 chown -R "$install_user:$install_user" "$repo_dir" "$runtime_dir"
 chmod 700 "$ssh_dir"
 
+cat > "$config_dir/runtime.env" <<EOF
+FINDINGS_S3_BUCKET=${findings_s3_bucket}
+FINDINGS_S3_PREFIX=${findings_s3_prefix}
+EOF
+chmod 600 "$config_dir/runtime.env"
+chown "$install_user:$install_user" "$config_dir/runtime.env"
+
 fetch_parameter() {
   local name="$1"
   local dest="$2"
